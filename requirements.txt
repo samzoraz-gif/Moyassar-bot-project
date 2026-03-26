@@ -1,0 +1,30 @@
+# --- الأساسيات وإدارة البيانات ---
+python-dotenv
+pandas>=2.0.0
+openpyxl>=3.1.0
+numpy>=1.24.0,<2.0.0
+joblib
+requests
+
+# --- واجهة التلجرام (Telegram Bot) ---
+python-telegram-bot>=20.0
+
+# --- الذكاء الاصطناعي والتعلم الآلي ---
+openai
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+
+# --- التعلم العميق ومعالجة اللغة (NLP) ---
+torch>=2.0.0
+transformers>=4.30.0
+tensorflow>=2.15.0
+
+# --- دعم اللغة العربية وتوليد التقارير (PDF) ---
+fpdf2>=2.7.0
+arabic-reshaper
+python-bidi
+
+# --- الرسوم البيانية وتحسين النتائج المرئية ---
+matplotlib
+seaborn
+plotly
