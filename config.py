@@ -80,7 +80,7 @@ EVAL_MAPPING = {
 }
 
 #  حالات المحادثة (Conversation States) 
-CHOOSING_GRADE, CHOOSING_WEEK, CHATTING, EVALUATING = range(4) #
+CHOOSING_GRADE, CHOOSING_WEEK, CHATTING, GENERATING, EVALUATING = range(5) #
 
 #  إعدادات النماذج (ML Config) 
 # مسارات حفظ النماذج المدربة مستقبلاً

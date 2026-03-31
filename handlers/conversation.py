@@ -17,6 +17,7 @@ from data.db_manager import DatabaseManager
 from utils.pdf_generator import LessonPDFGenerator
 from .ai_orchestrator import AIModelOrchestrator
 from models.ai_engine import AIEngine
+from utils.visualizer import PerformanceVisualizer
 
 # 2. تهيئة الكائنات المركزية
 curriculum = CurriculumManager()
@@ -24,6 +25,7 @@ db_manager = DatabaseManager()
 pdf_gen = LessonPDFGenerator()
 orchestrator = AIModelOrchestrator()
 ai_engine = AIEngine()
+visualizer = PerformanceVisualizer()
 
 # --- المحرك المركزي للربط الثلاثي ---
 
@@ -76,7 +78,9 @@ async def new_lesson_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ خظأ: لم يتم العثور على بيانات المنهج")
         return ConversationHandler.END
     
-    keyboard = [[InlineKeyboardButton(name, callback_data=f"GRADE_{gid}")] for gid, name in grades.items()]
+    keyboard = [
+        [InlineKeyboardButton(name, callback_data=f"GRADE_{gid}")] 
+        for gid, name in grades.items()]
     await update.message.reply_text(
         "📚 **مرحبًا بك مع مُيَّسِر**\n من فضلك اختر الفصل الدراسي:",
         reply_markup=InlineKeyboardMarkup(keyboard),
@@ -265,31 +269,84 @@ async def start_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def submit_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """حفظ التقييم وتحديث نموذج XGBoost (Online Learning)."""
     query = update.callback_query
-    if not query or not query.data or not query.message or not update.effective_user: return EVALUATING
+    if not query or not query.data or not query.message or not update.effective_user:
+        return ConversationHandler.END
+     
     await query.answer()
     
+    # 1. تعريف المتغيرات الأساسية من سياق المستخدم (Context)
     score = int(query.data.replace("EVAL_",""))
+    user =update.effective_user
     lesson_details = context.user_data.get('lesson_details',{})
     last_response = context.user_data.get('last_ai_response',"")
-    user =update.effective_user
+    
 
-    if db_manager:
-        db_manager.add_evaluation(
+    # استخراج grade_level بشكل آمن وتخزينه في متغير محلي لتجنب خطأ Undefined
+    current_grade = context.user_data.get('selected_grade', '---')
+    lesson_title = lesson_details.get('title', 'درس جديد')
+    grade_name = lesson_details.get('grade_name', 'غير معروف')
+
+    try:
+        # 2. الحفظ في قاعدة البيانات باستخدام المسميات الصحيحة في db_manager
+        if db_manager:
+            db_manager.add_evaluation(
+                teacher_id=str(user.id),
+                lesson_title=lesson_title,
+                grade_level=current_grade,
+                score=score,
+                ai_reply=last_response,
+                grade_name=grade_name
+            )
+    except Exception as e:
+        logging.error(f"Database Error: {e}")
+
+    # 3. الربط مع الرسام والمحلل الذكي
+    try:
+        # جلب التاريخ بناءً على مستوى الصف الدراسي كما هو معرف في db_manager
+        history = db_manager.get_teacher_evaluation_history(current_grade)
+
+        # استدعاء المنسق للحصول على تنبؤ LSTM وفجوة XGBoost
+        # نستخدم دالة process_lesson_request الموجودة في ai_orchestrator
+        viz_data=orchestrator.process_lesson_request(
             teacher_id=str(user.id),
-            lesson_title=lesson_details.get('title','غير محدد'),
-            grade_level=context.user_data.get('selected_grade','---'),
-            score=score,
-            ai_reply=last_response,
-            grade_name=lesson_details.get('grade_name','غير معروف') 
+            surname=user.first_name,
+            lesson_title=lesson_title,
+            user_query="تقييم روتيني",
+            lesson_goal="---",
+            grade_level=current_grade
         )
-    
-    await query.edit_message_text(
-        "✅ **تم تسجيل التقييم بنجاح!**\n"
-        "ستساعد هذه البيانات محرك 'مُيسِّر' على تقديم توصيات أدق في دروسك القادمة.\n\n"
-        "شكراً لك يا معلم!")
-    await query.message.reply_text(
-        "📚 **مُيَّسِر** في خدمتك دائماً لتحضير دروس متميزة!\n\n القائمة الرئيسية:",
-        reply_markup=MAIN_MENU_KEYBOARD)
-    
-    context.user_data.clear()
+
+        # استخراج القيم التنبؤية
+        predicted_val = viz_data.get('trend_value', 2.0)
+        gap_prob = viz_data.get('xgb_result', {}).get('gap_probability', 0)
+
+        # 4. توليد الرسم البياني عبر PerformanceVisualizer
+        # نرسل آخر 5 تقييمات للوضوح
+        chart_buf = visualizer.generate_smart_chart(
+            history=history[-5:] if len(history) > 0 else [score],
+            current_score=score,
+            prediction=predicted_val,
+            gap_prob=gap_prob,
+            lesson_title=lesson_title
+        )
+        
+        # 5. إرسال الصورة والتقرير النهائي للمعلم
+        await query.message.reply_photo(
+            photo=chart_buf,
+            caption=(
+                f"✅ **تم تسجيل التقييم بنجاح!**\n\n"
+                f"📊 **رؤية مُيَسِّر الذكية للدرس القادم:**\n"
+                f"• مستوى التفاعل الحالي: {score}/3\n"
+                f"• احتمالية الفجوة القادمة: {gap_prob}%\n\n"
+                f"💡 *الرسم البياني يوضح اتجاه الأداء المتوقع بناءً على صعوبة المنهج وتاريخ الصف.*"
+            ),
+            parse_mode=ParseMode.MARKDOWN)
+        
+        await query.delete_message()  # حذف رسالة التقييم لتقليل الفوضى في الدردشة
+        
+    except Exception as e:
+        logging.error(f"Error generating visual report: {e}")
+        await query.message.reply_text(f"✅ تم حفظ التقييم بنجاح لمستوى {current_grade}، ولكن تعذر رسم المخطط.")
+        
+    #context.user_data.clear()
     return ConversationHandler.END

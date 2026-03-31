@@ -5,6 +5,7 @@ import os
 from models.trend_analyzer import LSTMEngine
 from models.predictor import EducationalXGBManager
 from models.nlp_engine import EducationalBERTManager
+from data.db_manager import DatabaseManager
 
 # استيراد الاعدادات المركزية
 from config import *
@@ -42,28 +43,27 @@ class AIModelOrchestrator:
             print(f"⚠️ خطأ في قراءة سجل التقييمات: {e}")
             return [2.0]
 
-    def process_lesson_request(self, teacher_id: str, surname: str, lesson_title: str, user_query: str, lesson_goal: str) -> dict:
+    def process_lesson_request(self, teacher_id: str, surname: str, lesson_title: str, user_query: str, lesson_goal: str, grade_level: str = '1') -> dict:
         """
         الوظيفة الرئيسية: تستقبل طلب المعلم، تمرره على النماذج الثلاثة，
         وتعيد النص النهائي (Prompt) الجاهز للإرسال إلى OpenAI.
         """
         try:
-            history=self._get_historical_evaluations(teacher_id , surname, grade_level='1') # نستخدم '1' كافتراضي للصف
+            history=self._get_historical_evaluations(teacher_id , surname, grade_level=grade_level)
 
             features = {
             'teacher_id': teacher_id,
             'lesson_title': lesson_title, # تم التأكد من الاسم هنا
             'user_query': user_query,
-            'grade_level': '1' # أو جلبها من مكان آخر
+            'grade_level': grade_level
             }
         # ==========================================
         # 1. جلب البيانات الديناميكية (XGBoost Feature Fetcher)
         # ==========================================
             features = self.xgb_engine.fetch_dynamic_features(teacher_id, surname, lesson_title)
             
-            # استخراج الصف لسحب التاريخ (نفترض أن المنهج يحدد الصف، وإلا نستخدم 'الأول' كافتراضي)
-            # سيتم الاعتماد على البيانات المجلوبة من دالة fetch_dynamic_features
-            dynamic_grade = features.get('grade_level', '1') # يمكن سحبها ديناميكياً إذا تمت إضافتها لـ features
+            # استخراج الصف لسحب التاريخ (نفترض أن المنهج يحدد الصف، وإلا نستخدم grade_level الممرر إلى الدالة)
+            dynamic_grade = features.get('grade_level', grade_level)
             
             # ==========================================
             # 2. تحليل الاتجاه الزمني (LSTM Engine)
@@ -136,3 +136,26 @@ class AIModelOrchestrator:
                 'trend_label': None,
                 'trend_value': None
             }
+        
+    def prepare_visual_insights(self, teacher_id, grade_level, current_score, lesson_title):
+        """توليد رسم بياني ذكي يوضح الاتجاه والفجوة الحالية."""
+        db = DatabaseManager()
+        history =db.get_teacher_evaluation_history(grade_level)
+
+        _, predicted_val = self.lstm_engine.analyze_trend_lstm(history + [current_score])
+
+        xgb_res = self.xgb_engine.predict_educational_outcome(
+            participation=current_score,
+            lstm_trend=predicted_val,
+            difficulty='متوسط',
+            duration=40,
+            game_template='جماعي'
+        )
+
+        return {
+            'history': history[-5:],
+            'current_score': current_score,
+            'prediction': predicted_val,
+            'gap_prob': xgb_res.get('gap_probability', 0),
+            'title': lesson_title
+        }
