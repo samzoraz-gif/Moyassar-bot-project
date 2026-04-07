@@ -9,7 +9,6 @@ from utils.text_processor import ArabicTextProcessor
 class LessonPDFGenerator:
     def __init__(self):
         self.processor = ArabicTextProcessor()
-        # تعريف المسار هنا لضمان عمل الدالة
         self.font_path = Path(FONT_PATH) if Path(FONT_PATH).exists() else None
 
     def _register_fonts(self, pdf: FPDF) -> bool:
@@ -30,9 +29,12 @@ class LessonPDFGenerator:
             self.font_path = None
             return False
 
-    def process_text(self, text):
+    def process_text(self, text) -> str:
         """دالة وسيطة لضمان استخدام معالج النصوص العربي"""
-        return self.processor.format_text(text)
+        processed = self.processor.format_text(text)
+        if not isinstance(processed, str):
+            processed = processed.decode('utf-8', errors='replace')
+        return str(processed)
     
     def _generate_pdf_buffer(self, pdf):
         """حفظ الملف في الذاكرة ليرسله البوت"""
@@ -51,7 +53,7 @@ class LessonPDFGenerator:
             pdf.set_x(0)
             date_str = datetime.now().strftime('%Y-%m-%d')
             footer_txt = self.process_text(f"تم إنشاء هذا المستند آلياً بواسطة مُيسِر - بتاريخ {date_str}")
-            pdf.cell(210, 10, footer_txt, align='C')
+            pdf.cell(0, 10, footer_txt, align='C')
         pdf.footer = footer
 
     def create_lesson_plan_pdf(self, item, ai_reply, grade_name):
@@ -59,7 +61,7 @@ class LessonPDFGenerator:
         self.setup_pdf_footer(pdf)
         pdf.add_page()
         
-        # الألوان (أزرق ملكي)
+        # الألوان
         header_blue = (41, 128, 185)
         table_label_bg = (245, 247, 249)
         table_border = (200, 200, 200)
@@ -71,15 +73,16 @@ class LessonPDFGenerator:
         font_bold = 'AmiriBold' if fonts_loaded else 'Arial'
         pdf.set_font(font_regular, '', 12)
 
-        # --- 1. رأس الصفحة (Header) ---
+        # رأس الصفحة
         pdf.set_fill_color(*header_blue)
         pdf.rect(0, 0, 210, 40, 'F')
         pdf.set_text_color(255, 255, 255)
         pdf.set_font(font_bold, '', 20)
         pdf.set_y(15)
-        pdf.cell(0, 10, self.process_text(f"خطة تحضير الدرس - {item.get('title', '')}"), ln=1, align='C')
+        pdf.cell(0, 10, self.process_text(f"خطة تحضير الدرس - {item.get('title', '')}"), align='C')
+        pdf.ln(5)
         
-        # --- 2. الجدول التعريفي ---
+        # الجدول التعريفي
         pdf.set_y(50)
         pdf.set_draw_color(*table_border)
         pdf.set_text_color(*text_dark)
@@ -87,28 +90,27 @@ class LessonPDFGenerator:
 
         def draw_four_col_row(label1, val1, label2, val2):
             w_label, w_val, h = 35, 60, 12
-            # الأعمدة من اليمين لليسار
             positions = [10 + 60 + 35 + 60, 10 + 60 + 35, 10 + 60, 10]
             
-            # الخلية 1 (العنوان 1)
+            # الخلية 1
             pdf.set_xy(positions[0], pdf.get_y())
             pdf.set_fill_color(*table_label_bg)
             pdf.set_font(font_bold, '', 11)
             pdf.cell(w_label, h, self.process_text(label1), border=1, fill=True, align='R')
             
-            # الخلية 2 (القيمة 1)
+            # الخلية 2
             pdf.set_xy(positions[1], pdf.get_y())
             pdf.set_fill_color(255, 255, 255)
             pdf.set_font(font_regular, '', 11)
             pdf.cell(w_val, h, self.process_text(val1), border=1, fill=True, align='R')
 
-            # الخلية 3 (العنوان 2)
+            # الخلية 3
             pdf.set_xy(positions[2], pdf.get_y())
             pdf.set_fill_color(*table_label_bg)
             pdf.set_font(font_bold, '', 11)
             pdf.cell(w_label, h, self.process_text(label2), border=1, fill=True, align='R')
             
-            # الخلية 4 (القيمة 2)
+            # الخلية 4
             pdf.set_xy(positions[3], pdf.get_y())
             pdf.set_fill_color(255, 255, 255)
             pdf.set_font(font_regular, '', 11)
@@ -118,11 +120,11 @@ class LessonPDFGenerator:
         draw_four_col_row("الصف الدراسي:", grade_name, "الهدف التعليمي:", item.get('goal', '---'))
         draw_four_col_row("زمن الحصة:", item.get('duration', '40 دقيقة'), "رقم الصفحة:", item.get('page_ref', '---'))
 
-        # --- 3. المحتوى الذكي ---
+        # المحتوى الذكي
         pdf.ln(10)
         pdf.set_font(font_bold, '', 16)
-        pdf.set_text_color(*header_blue) 
-        pdf.cell(0, 10, self.process_text("الأنشطة التعليمية المقترحة (مُيسِر AI)"), ln=1, align='R')
+        pdf.set_text_color(*header_blue)
+        pdf.cell(0, 10, self.process_text("الأنشطة التعليمية المقترحة (مُيسِر AI)"), align='R')
         pdf.set_draw_color(*header_blue)
         pdf.set_line_width(0.5)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
@@ -133,31 +135,32 @@ class LessonPDFGenerator:
         clean_reply = ai_reply.replace('**', '').replace('###', '').replace('-', '•')
         pdf.multi_cell(0, 9, self.process_text(clean_reply), align='R')
 
-        # --- 4. الملاحظات والتوقيعات ---
+        # الملاحظات والتوقيعات
         current_y = pdf.get_y()
-        if current_y > 230: pdf.add_page(); current_y = 20
+        if current_y > 230: 
+            pdf.add_page()
+            current_y = 20
         
         pdf.ln(10)
         pdf.set_font(font_regular, '', 14)
         pdf.set_text_color(19, 38, 250)
-        # عنوان عريض للملاحظات
-        pdf.cell(0, 10, self.process_text("ملاحظات المعلم:"), ln=1, align='R')
+        pdf.cell(0, 10, self.process_text("ملاحظات المعلم:"), align='R')
         
-        # رسم مربع الملاحظات (ارتفاع 3 سم = 30 ملم) بلون هادئ جداً
-        pdf.set_fill_color(250, 252, 255) # لون سماوي باهت جداً
+        # مربع الملاحظات
+        pdf.set_fill_color(250, 252, 255)
         pdf.set_draw_color(220, 220, 220)
         current_y = pdf.get_y()
-        pdf.rect(10, current_y, 190, 30, 'DF') # مربع بمساحة 3 سم
-        pdf.set_y(current_y + 35) # الانتقال لما بعد المربع
+        pdf.rect(10, current_y, 190, 30, 'DF')
+        pdf.set_y(current_y + 35)
         
         pdf.set_font(font_bold, '', 11)
         pdf.set_text_color(44, 62, 80)
 
-        pdf.set_x(105) # نبدأ من اليسار بعد ترك مساحة للتوقيع الأول
-        pdf.cell(95, 10, self.process_text("توقيع معلــم المـادة: ..........................."), align='R',ln=0)
+        pdf.set_x(105)
+        pdf.cell(95, 10, self.process_text("توقيع معلــم المـادة: ..........................."), align='R')
         
-        pdf.set_x(10) # نبدأ من اليسار للتوقيع الثاني
-        pdf.cell(95, 10, self.process_text("توقيع الخبير التربوي: ..........................."), align='L',ln=1)
+        pdf.set_x(10)
+        pdf.cell(95, 10, self.process_text("توقيع الخبير التربوي: ..........................."), align='L')
 
         return self._generate_pdf_buffer(pdf)
     
@@ -166,20 +169,20 @@ class LessonPDFGenerator:
         self.setup_pdf_footer(pdf)
         pdf.add_page()
         
-        # الألوان لتقرير التقييم (أخضر مريح)
         header_green = (23, 165, 137)
         
         fonts_loaded = self._register_fonts(pdf)
         pdf.set_font('Amiri' if fonts_loaded else 'Arial', '', 12)
 
         # الرأس
+        
         pdf.set_fill_color(*header_green)
         pdf.rect(0, 0, 210, 40, 'F')
         pdf.set_text_color(255, 255, 255)
         pdf.set_font_size(18)
         header_title = f"تقرير أداء الطلبة - المعلم/ة {teacher_name}"
         pdf.set_y(15)
-        pdf.cell(0, 10, self.process_text(header_title), ln=1, align='C')
+        pdf.cell(0, 10, self.process_text(header_title), align='C')
         
         # المحتوى
         pdf.set_y(50)
@@ -195,7 +198,7 @@ class LessonPDFGenerator:
         for label, val in items:
             pdf.set_font_size(13)
             pdf.set_text_color(*header_green)
-            pdf.cell(0, 10, self.process_text(label), ln=1, align='R')
+            pdf.cell(0, 10, self.process_text(label), align='R')
             pdf.set_font_size(12)
             pdf.set_text_color(0, 0, 0)
             pdf.multi_cell(0, 8, self.process_text(val), align='R')
@@ -204,15 +207,10 @@ class LessonPDFGenerator:
         return self._generate_pdf_buffer(pdf)
 
     def create_full_summary_pdf(self, teacher_name, history_data):
-        """
-        توليد التقرير الشامل للأداء التربوي (Full Performance Report).
-        يستعرض الإحصائيات التراكمية، تحليل الاتجاهات، وتوصيات الذكاء الاصطناعي.
-        """
         pdf = FPDF()
         self.setup_pdf_footer(pdf)
         pdf.add_page()
         
-        # الألوان (أرجواني غامق للتقارير الاستراتيجية)
         brand_color = (108, 52, 131)
         bg_light = (248, 249, 249)
         
@@ -221,21 +219,21 @@ class LessonPDFGenerator:
         font_bold = 'AmiriBold' if fonts_loaded else 'Arial'
         pdf.set_font(font_regular, '', 12)
 
-        # --- 1. رأس التقرير (Header) ---
+        # رأس التقرير
         pdf.set_fill_color(*brand_color)
         pdf.rect(0, 0, 210, 45, 'F')
         pdf.set_text_color(255, 255, 255)
         pdf.set_font(font_bold, '', 22)
         pdf.set_y(12)
-        pdf.cell(0, 12, self.process_text("التقرير الشامل لتحليل الأداء التربوي"), ln=1, align='C')
+        pdf.cell(0, 12, self.process_text("التقرير الشامل لتحليل الأداء التربوي"), align='C')
         pdf.set_font_size(14)
-        pdf.cell(0, 10, self.process_text(f"للمعلم/ة: {teacher_name}"), ln=1, align='C')
+        pdf.cell(0, 10, self.process_text(f"للمعلم/ة: {teacher_name}"), align='C')
         
-        # --- 2. ملخص الإحصائيات (Executive Summary) ---
+        # ملخص الإحصائيات
         pdf.set_y(55)
         pdf.set_text_color(*brand_color)
         pdf.set_font(font_bold, '', 16)
-        pdf.cell(0, 10, self.process_text("📊 الملخص الإحصائي:"), ln=1, align='R')
+        pdf.cell(0, 10, self.process_text("📊 الملخص الإحصائي:"), align='R')
         pdf.set_draw_color(*brand_color)
         pdf.line(150, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(5)
@@ -253,18 +251,17 @@ class LessonPDFGenerator:
         )
         pdf.multi_cell(0, 10, self.process_text(stats_txt), align='R')
 
-        # --- 3. جدول السجلات التاريخية (History Table) ---
+        # جدول السجلات
         pdf.ln(10)
         pdf.set_font(font_bold, '', 16)
         pdf.set_text_color(*brand_color)
-        pdf.cell(0, 10, self.process_text("📑 سجل الأداء التفصيلي:"), ln=1, align='R')
+        pdf.cell(0, 10, self.process_text("📑 سجل الأداء التفصيلي:"), align='R')
         
         # رأس الجدول
         pdf.set_fill_color(230, 230, 230)
         pdf.set_font_size(11)
         cols = [("التقييم", 30), ("الصف", 30), ("عنوان الدرس", 90), ("التاريخ", 40)]
         
-        # رسم الرأس
         for label, width in cols:
             pdf.cell(width, 10, self.process_text(label), border=1, align='C', fill=True)
         pdf.ln()
@@ -283,7 +280,7 @@ class LessonPDFGenerator:
             pdf.cell(40, 10, self.process_text(timestamp_val), border=1, align='C')
             pdf.ln()
 
-        # --- 4. تحليل النماذج الذكية (AI Insights) ---
+        # تحليل AI
         pdf.ln(10)
         if pdf.get_y() > 220: pdf.add_page()
         
@@ -294,23 +291,19 @@ class LessonPDFGenerator:
         pdf.set_y(pdf.get_y() + 5)
         pdf.set_font(font_bold, '', 14)
         pdf.set_text_color(*brand_color)
-        pdf.cell(0, 8, self.process_text("💡 رؤية 'مُيسِر' لسد الفجوات التعليمية:"), ln=1, align='R')
+        pdf.cell(0, 8, self.process_text("💡 رؤية 'مُيسِر' لسد الفجوات التعليمية:"), align='R')
         
         pdf.set_font(font_regular, '', 12)
         pdf.set_text_color(0, 0, 0)
         
-        # منطق ذكي بناءً على المتوسط
         if avg_score > 2.5:
             insight = "ينبؤنا مُيَّسِر أن الطلاب يظهرون استجابة ممتازة للأنشطة الإثرائية. يوصى بالانتقال إلى استراتيجيات التعلم الذاتي والاكتشاف."
         elif avg_score > 1.8:
             insight = "يخبرنا مُيَّسِر أن الأداء مستقر بشكل عام، ولكن توجد فجوات بسيطة في الدروس الطويلة. يوصى بتقسيم المهام وتكثيف الأنشطة الحركية."
         else:
             insight = "بيانات مُيَّسِر تخبرنا أن الطلاب بواجهون صعوبة، والحل هو تبسيط الشرح وتدريبهم عبر رؤية المعلم وهو يطبق الخطوات أمامهم خطوة بخطوة."
-            
+        
         pdf.set_x(15)
-        insight_text = self.process_text(insight)
-        if isinstance(insight_text, bytes):
-            insight_text = insight_text.decode('utf-8')
-        pdf.multi_cell(180, 8, insight_text, align='R')
+        pdf.multi_cell(180, 8, self.process_text(insight), align='R')
 
-        return self._generate_pdf_buffer(pdf)    
+        return self._generate_pdf_buffer(pdf)
