@@ -2,8 +2,6 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 import numpy as np
 from typing import Dict, Any, Optional
-from sklearn.metrics.pairwise import cosine_similarity
-from config import GITHUB_TOKEN # الاعتماد على الإعدادات المركزية
 
 class EducationalBERTManager:
     """
@@ -14,7 +12,7 @@ class EducationalBERTManager:
         # استخدام نموذج DistilBERT يدعم العربية لفهم السياق التربوي
         self.model_name = "aubmindlab/bert-base-arabertv02"
         self.tokenizer: Optional[AutoTokenizer] = None
-        self.model: Optional[AutoModel] = None
+        self.model: Optional[Any] = None
         self.model_available = False
         self._initialize_bert()
 
@@ -35,7 +33,13 @@ class EducationalBERTManager:
             return None
         
         # التأكد من أن tokenizer قابل للاستدعاء
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512, padding=True)
+        inputs = self.tokenizer.encode_plus(
+            text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            padding="max_length"
+        )
         with torch.no_grad():
             outputs = self.model(**inputs)
         return outputs.last_hidden_state.mean(dim=1).numpy()
@@ -94,7 +98,7 @@ class EducationalBERTManager:
         if is_requesting_plan:
             dynamic_instruction = (
                 f"صمم خطة نشاط لدرس '{title}' الذي يهدف إلى '{goal}'. "
-                f"بناءً على فجوة التعلم {gap_prob}%، واتجاه الأداء {trend})، استخدام استراتيجية {strategy}. "
+                f"بناءً على فجوة التعلم {gap_prob}%، واتجاه الأداء {trend}، استخدم استراتيجية {strategy}. "
                 f"النشاط المطلوب {game_format} بصعوبة {difficulty}، ليتناسب مع {duration} دقيقة. "
                 f"استفسار المعلم الإضافي: {user_query}"
         )
