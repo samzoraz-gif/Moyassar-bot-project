@@ -41,26 +41,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض إحصائيات المعلم وتحليل الأداء بناءً على البيانات التاريخية."""
-    if not update._effective_user or not update.message:
+    if not update.effective_user or not update.message:
         return
     
-    user = update._effective_user
+    user = update.effective_user
     teacher_id = str(user.id)
     username = user.username or user.first_name or "المعلمة"
     try:
-        # التأكد من جاهزية المنسق
+        history = db_manager.get_teacher_evaluation_history(teacher_id=teacher_id)
+
         if not orchestrator:
-            await update.message.reply_text("⚠️ النظام التحليلي غير جاهز حالياً.")    
+            await update.message.reply_text("⚠️ النظام التحليلي غير جاهز حالياً.")
             return
-        
-        # 1. جلب التاريخ التقييمي عبر المنسق (افتراض الصف الأول للملف الشخصي العام)
-        history = orchestrator._get_historical_evaluations(
-            teacher_id=teacher_id,
-            surname=username,
-            grade_level="1")
 
         # 2. تحليل الاتجاه عبر محرك LSTM الموجود داخل المنسق
-        trend_label, _ =orchestrator.lstm_engine.analyze_trend_lstm(history)
+        trend_label, _ = orchestrator.lstm_engine.analyze_trend_lstm(history)
 
         # 3. حساب المتوسط
         avg_score = sum(history) / len(history) if history else 0
@@ -89,11 +84,12 @@ async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         keyboard = [[InlineKeyboardButton(BTN_PRINT_REPORT, callback_data="PRINT_FULL_REPORT")]]
-        await update.message.reply_text(response, reply_markup=InlineKeyboardMarkup(keyboard),parse_mode=ParseMode.MARKDOWN)
-    
+        await update.message.reply_text(response, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+        return ConversationHandler.END
     except Exception as e:
         logging.error(f"Error in show_profile: {e}")
         await update.message.reply_text(f"⚠️ خطأ في جلب البيانات: {e}")
+        return ConversationHandler.END
 
 async def cancel_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إيقاف الجلسة الحالية وتنظيف البيانات المؤقتة."""

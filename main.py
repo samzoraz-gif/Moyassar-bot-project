@@ -32,9 +32,15 @@ def main():
                 CallbackQueryHandler(print_reply_handler, pattern="^PRINT_REPLY$"),
                 CallbackQueryHandler(start_evaluation, pattern="^START_EVAL$"),
                 CallbackQueryHandler(print_full_report_handler, pattern="^(PRINT_EVAL_REPORT|PRINT_FULL_REPORT)$"),
+                MessageHandler(filters.Regex(f"^{BTN_NEW_LESSON}$"), new_lesson_flow),
+                MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile),
                 MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex(f"^{BTN_CANCEL}$"), handle_ai_chat)
             ],
-            EVALUATING: [CallbackQueryHandler(submit_evaluation, pattern="^EVAL_")]
+            EVALUATING: [
+                CallbackQueryHandler(submit_evaluation, pattern="^EVAL_"),
+                MessageHandler(filters.Regex(f"^{BTN_NEW_LESSON}$"), new_lesson_flow),
+                MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile)
+            ]
         },
         fallbacks=[
             MessageHandler(filters.Regex(f"^{BTN_CANCEL}$"), cancel_action),
@@ -46,6 +52,7 @@ def main():
     # إضافة الـ Handlers الأساسية
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile))
+    app.add_handler(CommandHandler("profile", show_profile))
     # تسجيل التعامل مع طباعة تقرير الأداء سواء من داخل المحادثة أو من ملف التعريف
     app.add_handler(CallbackQueryHandler(print_full_report_handler, pattern="^PRINT_FULL_REPORT$"))
 

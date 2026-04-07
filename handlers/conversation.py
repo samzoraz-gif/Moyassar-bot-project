@@ -302,14 +302,13 @@ async def submit_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 3. الربط مع الرسام والمحلل الذكي
     try:
-        # جلب التاريخ بناءً على مستوى الصف الدراسي كما هو معرف في db_manager
-        history = db_manager.get_teacher_evaluation_history(current_grade)
+        history = db_manager.get_teacher_evaluation_history(
+            teacher_id=str(user.id),
+            grade_level=current_grade
+        )
 
         # استدعاء المنسق للحصول على تنبؤ LSTM وفجوة XGBoost
-        # نستخدم دالة process_lesson_request الموجودة في ai_orchestrator
-        viz_data=orchestrator.process_lesson_request(
-            teacher_id=str(user.id),
-            surname=user.first_name,
+        viz_data = orchestrator.process_lesson_request(
             lesson_title=lesson_title,
             user_query="تقييم روتيني",
             lesson_goal="---",

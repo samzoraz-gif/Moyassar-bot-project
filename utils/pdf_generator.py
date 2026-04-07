@@ -217,13 +217,15 @@ class LessonPDFGenerator:
         bg_light = (248, 249, 249)
         
         fonts_loaded = self._register_fonts(pdf)
-        pdf.set_font('Amiri' if fonts_loaded else 'Arial', '', 12)
+        font_regular = 'Amiri' if fonts_loaded else 'Arial'
+        font_bold = 'AmiriBold' if fonts_loaded else 'Arial'
+        pdf.set_font(font_regular, '', 12)
 
         # --- 1. رأس التقرير (Header) ---
         pdf.set_fill_color(*brand_color)
         pdf.rect(0, 0, 210, 45, 'F')
         pdf.set_text_color(255, 255, 255)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 22)
+        pdf.set_font(font_bold, '', 22)
         pdf.set_y(12)
         pdf.cell(0, 12, self.process_text("التقرير الشامل لتحليل الأداء التربوي"), ln=1, align='C')
         pdf.set_font_size(14)
@@ -232,7 +234,7 @@ class LessonPDFGenerator:
         # --- 2. ملخص الإحصائيات (Executive Summary) ---
         pdf.set_y(55)
         pdf.set_text_color(*brand_color)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 16)
+        pdf.set_font(font_bold, '', 16)
         pdf.cell(0, 10, self.process_text("📊 الملخص الإحصائي:"), ln=1, align='R')
         pdf.set_draw_color(*brand_color)
         pdf.line(150, pdf.get_y(), 200, pdf.get_y())
@@ -242,7 +244,7 @@ class LessonPDFGenerator:
         avg_score = sum(item['eval_score'] for item in history_data) / total_lessons if total_lessons > 0 else 0
         
         pdf.set_text_color(44, 62, 80)
-        pdf.set_font('Amiri' if self.font_path else 'Arial', '', 13)
+        pdf.set_font(font_regular, '', 13)
         
         stats_txt = (
             f"• إجمالي الدروس التي تم تحليلها: {total_lessons} درساً.\n"
@@ -253,7 +255,7 @@ class LessonPDFGenerator:
 
         # --- 3. جدول السجلات التاريخية (History Table) ---
         pdf.ln(10)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 16)
+        pdf.set_font(font_bold, '', 16)
         pdf.set_text_color(*brand_color)
         pdf.cell(0, 10, self.process_text("📑 سجل الأداء التفصيلي:"), ln=1, align='R')
         
@@ -268,7 +270,7 @@ class LessonPDFGenerator:
         pdf.ln()
 
         # بيانات الجدول
-        pdf.set_font('Amiri' if self.font_path else 'Arial', '', 10)
+        pdf.set_font(font_regular, '', 10)
         for row in history_data:
             score_val = str(row.get('eval_score', row.get('score', '0')))
             title_val = row.get('lesson_title', row.get('title', '---'))
@@ -290,11 +292,11 @@ class LessonPDFGenerator:
         pdf.rect(10, pdf.get_y(), 190, 45, 'DF')
         
         pdf.set_y(pdf.get_y() + 5)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 14)
+        pdf.set_font(font_bold, '', 14)
         pdf.set_text_color(*brand_color)
         pdf.cell(0, 8, self.process_text("💡 رؤية 'مُيسِر' لسد الفجوات التعليمية:"), ln=1, align='R')
         
-        pdf.set_font('Amiri' if self.font_path else 'Arial', '', 12)
+        pdf.set_font(font_regular, '', 12)
         pdf.set_text_color(0, 0, 0)
         
         # منطق ذكي بناءً على المتوسط

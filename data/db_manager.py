@@ -46,15 +46,17 @@ class DatabaseManager:
             print(f"Error adding evaluation: {e}")
             return False
 
-    def get_teacher_evaluation_history(self, grade_level):
-        """جلب تاريخ التقييمات بناءً على مستوى الصف الدراسي"""
+    def get_teacher_evaluation_history(self, teacher_id=None, grade_level=None):
+        """جلب تاريخ التقييمات بناءً على المعلم أو مستوى الصف الدراسي أو كليهما."""
         try:
             if not os.path.exists(self.db_file):
                 return []
             df = pd.read_excel(self.db_file, sheet_name=SHEET_EVALUATIONS)
-            # تم تعديل المنطق هنا ليعتمد على grade_level بدلاً من المعلم كما طلبت سابقاً
-            filtered_df = df[df['grade_level'] == grade_level]
-            return filtered_df['eval_score'].tolist()
+            if teacher_id is not None:
+                df = df[df['teacher_id'].astype(str) == str(teacher_id)]
+            if grade_level is not None:
+                df = df[df['grade_level'] == grade_level]
+            return df['eval_score'].tolist()
         except Exception:
             return []
 
