@@ -26,6 +26,12 @@ orchestrator = AIModelOrchestrator()
 ai_engine = AIEngine()
 visualizer = PerformanceVisualizer()
 
+
+def _ensure_user_data(context):
+    if context.user_data is None:
+        context.user_data = {}
+    return context.user_data
+
 # --- المحرك المركزي للربط الثلاثي ---
 
 async def get_ai_educational_response(grade_id: str, lesson_data: Optional[Dict], user_query: str, teacher_id: str, username: str):
@@ -97,7 +103,8 @@ async def grade_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     grade_id = query.data.replace("GRADE_", "")
-    context.user_data['selected_grade'] = grade_id
+    user_data = _ensure_user_data(context)
+    user_data['selected_grade'] = grade_id
 
     lessons = curriculum.get_lessons_for_grade(grade_id)
     lessons = [lesson for lesson in lessons if isinstance(lesson, dict)] if lessons else []
@@ -128,14 +135,15 @@ async def week_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_WEEK
     await query.answer()
     
+    user_data = _ensure_user_data(context)
     lesson_index = int(query.data.replace("WEEK_", ""))
-    grade_id = context.user_data.get('selected_grade', '')
+    grade_id = str(user_data.get('selected_grade', ''))
     lesson_details = curriculum.get_lesson_details(grade_id, lesson_index)
     if not lesson_details:
         await query.edit_message_text("⚠️ فشل جلب تفاصيل الدرس.")
         return CHOOSING_WEEK
     
-    context.user_data["lesson_details"] = lesson_details
+    user_data["lesson_details"] = lesson_details
 
     user = update.effective_user
     uid = str(user.id) if user else "0"
@@ -144,8 +152,8 @@ async def week_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text("⚙️ **جاري تحليل البيانات وتصميم الخطة...**")
     
     # طلب الخطة المبدئية من المنسق
-    response, _ = await get_ai_educational_response(grade_id, lesson_details, "خطة درس أولية", uid, uname)
-    context.user_data['last_ai_response'] = response
+    response, _ = await get_ai_educational_response(str(grade_id or ''), lesson_details, "خطة درس أولية", uid, uname)
+    user_data['last_ai_response'] = response
 
     keyboard = [
         [InlineKeyboardButton(BTN_PRINT_PREP, callback_data="PRINT_REPLY")],
@@ -159,9 +167,10 @@ async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_user: 
         return CHATTING
 
+    user_data = _ensure_user_data(context)
     user_query = update.message.text
-    lesson_details = context.user_data.get('lesson_details')
-    grade_id = context.user_data.get('selected_grade') 
+    lesson_details = user_data.get('lesson_details')
+    grade_id = str(user_data.get('selected_grade', ''))
     user = update.effective_user
     
     if not lesson_details:
@@ -169,8 +178,8 @@ async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     loading_msg = await update.message.reply_text("🔄 جاري معالجة طلبك...")
 
-    response, _ = await get_ai_educational_response(grade_id, lesson_details, user_query, user.id, user.first_name) 
-    context.user_data["last_ai_response"] = response
+    response, _ = await get_ai_educational_response(grade_id, lesson_details, user_query, str(user.id), user.first_name or "المعلم/ة") 
+    user_data["last_ai_response"] = response
     
     keyboard = [
         [InlineKeyboardButton(BTN_PRINT_PREP, callback_data="PRINT_REPLY")],
@@ -189,8 +198,9 @@ async def print_reply_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     await query.answer("جاري تجهيز ملف PDF...")
 
-    last_response = str(context.user_data.get('last_ai_response', "لا يوجد محتوى"))
-    current_lesson = context.user_data.get('lesson_details') or {}
+    user_data = _ensure_user_data(context)
+    last_response = str(user_data.get('last_ai_response', "لا يوجد محتوى"))
+    current_lesson = user_data.get('lesson_details') or {}
     
     pdf_buffer = pdf_gen.create_lesson_plan_pdf(
         item=current_lesson,
@@ -207,11 +217,13 @@ async def print_reply_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def print_full_report_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """طباعة تقرير الأداء الشامل كما في السيناريو المطلوب."""
     query = update.callback_query
-    if not query or not query.message: 
+    if not query or not query.message or not update.effective_user: 
         return
     await query.answer("🔄 جاري استخراج السجلات...")
 
-    user_id = str(update.effective_user.id)
+    user = update.effective_user
+    user_id = str(user.id)
+    user_name = user.first_name or "المعلم/ة"
 
     # جلب كافة تقييمات المعلم من قاعدة البيانات
     try:
@@ -245,10 +257,10 @@ async def print_full_report_handler(update: Update, context: ContextTypes.DEFAUL
                 'timestamp': str(row_dict.get('date_time', row_dict.get('timestamp', '---')))[:10]
             })
 
-        pdf_buffer = pdf_gen.create_full_summary_pdf(update.effective_user.first_name, report_data)    
+        pdf_buffer = pdf_gen.create_full_summary_pdf(user_name, report_data)    
         await query.message.reply_document(
-            document=InputFile(pdf_buffer, filename=f"Performance_Report_{update.effective_user.first_name}.pdf"),
-            caption=f"📊 تقرير الأداء التحليلي ورؤية *مُيسِّر* المستقبلية لأداء الطلاب- المعلم: {update.effective_user.first_name}",
+            document=InputFile(pdf_buffer, filename=f"Performance_Report_{user_name}.pdf"),
+            caption=f"📊 تقرير الأداء التحليلي ورؤية *مُيسِّر* المستقبلية لأداء الطلاب- المعلم: {user_name}",
             parse_mode=ParseMode.MARKDOWN
         )
     except Exception as e:
@@ -284,12 +296,13 @@ async def submit_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
      
     await query.answer()
     
+    user_data = _ensure_user_data(context)
     score = int(query.data.replace("EVAL_", ""))
     user = update.effective_user
-    lesson_details = context.user_data.get('lesson_details', {})
-    last_response = context.user_data.get('last_ai_response', "")
+    lesson_details = user_data.get('lesson_details', {})
+    last_response = user_data.get('last_ai_response', "")
 
-    current_grade = context.user_data.get('selected_grade', '---')
+    current_grade = user_data.get('selected_grade', '---')
     lesson_title = lesson_details.get('title', 'درس جديد') if lesson_details else 'درس جديد'
     grade_name = lesson_details.get('grade_name', 'غير معروف') if lesson_details else 'غير معروف'
 

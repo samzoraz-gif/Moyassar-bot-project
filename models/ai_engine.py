@@ -14,7 +14,7 @@ class AIEngine:
         )
         self.model_name = "gpt-4o-mini"  # اختيار نموذج مناسب لتوليد المحتوى التعليمي
 
-    async def generate_dynanamic_lesson_content(self, user_query, lesson_data, ml_insights, system_guidance):
+    async def generate_dynamic_lesson_content(self, user_query, lesson_data, ml_insights, system_guidance):
         """
         توليد استجابة ذكية مبنية علي بيانات حقيقية (فجوات، اتجاهات، سباق).
         
