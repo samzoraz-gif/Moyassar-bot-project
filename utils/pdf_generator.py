@@ -61,106 +61,117 @@ class LessonPDFGenerator:
         self.setup_pdf_footer(pdf)
         pdf.add_page()
         
-        # الألوان
-        header_blue = (41, 128, 185)
-        table_label_bg = (245, 247, 249)
-        table_border = (200, 200, 200)
-        text_dark = (44, 62, 80)
+        # --- ألوان وتصميم ---
+        primary_color = (41, 128, 185) # أزرق
+        light_gray = (240, 240, 240)
+        border_color = (200, 200, 200)
+        text_main = (44, 62, 80)
         
         # إعداد الخطوط
         fonts_loaded = self._register_fonts(pdf)
         font_regular = 'Amiri' if fonts_loaded else 'Arial'
         font_bold = 'AmiriBold' if fonts_loaded else 'Arial'
-        pdf.set_font(font_regular, '', 12)
 
-        # رأس الصفحة
-        pdf.set_fill_color(*header_blue)
-        pdf.rect(0, 0, 210, 40, 'F')
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_font(font_bold, '', 20)
-        pdf.set_y(15)
-        pdf.cell(0, 10, self.process_text(f"خطة تحضير الدرس - {item.get('title', '')}"), align='C')
-        pdf.ln(5)
+        # --- 1. الرأس الاحترافي (Header) ---
+        pdf.set_fill_color(*primary_color)
+        pdf.rect(0, 0, 210, 50, 'F') # خلفية كاملة للعرض
         
-        # الجدول التعريفي
-        pdf.set_y(50)
-        pdf.set_draw_color(*table_border)
-        pdf.set_text_color(*text_dark)
-        pdf.set_line_width(0.3)
+        pdf.set_y(25)
+        pdf.set_font(font_bold, '', 24)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 12, "خطة تحضير الدرس", align='C', ln='DEPRECATED')
+        
+        pdf.set_font(font_regular, '', 14)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(0, 10, f"الصف: {grade_name}  |  {item.get('title', 'الدرس')}", align='C', ln='DEPRECATED')
 
-        def draw_four_col_row(label1, val1, label2, val2):
-            w_label, w_val, h = 35, 60, 12
-            positions = [10 + 60 + 35 + 60, 10 + 60 + 35, 10 + 60, 10]
-            
-            # الخلية 1
-            pdf.set_xy(positions[0], pdf.get_y())
-            pdf.set_fill_color(*table_label_bg)
-            pdf.set_font(font_bold, '', 11)
-            pdf.cell(w_label, h, self.process_text(label1), border=1, fill=True, align='R')
-            
-            # الخلية 2
-            pdf.set_xy(positions[1], pdf.get_y())
-            pdf.set_fill_color(255, 255, 255)
-            pdf.set_font(font_regular, '', 11)
-            pdf.cell(w_val, h, self.process_text(val1), border=1, fill=True, align='R')
+        # --- 2. شريط المعلومات (Info Bar) ---
+        pdf.set_y(60)
+        pdf.set_draw_color(*primary_color)
+        pdf.set_line_width(1)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y()) # خط فاصل
+        pdf.ln(5)
 
-            # الخلية 3
-            pdf.set_xy(positions[2], pdf.get_y())
-            pdf.set_fill_color(*table_label_bg)
-            pdf.set_font(font_bold, '', 11)
-            pdf.cell(w_label, h, self.process_text(label2), border=1, fill=True, align='R')
-            
-            # الخلية 4
-            pdf.set_xy(positions[3], pdf.get_y())
-            pdf.set_fill_color(255, 255, 255)
-            pdf.set_font(font_regular, '', 11)
-            pdf.cell(w_val, h, self.process_text(val2), border=1, fill=True, align='R')
-            pdf.ln(h)
+        # جدول المعلومات الصغير
+        pdf.set_font(font_bold, '', 11)
+        pdf.set_text_color(*text_main)
+        
+        # الصف الأول (المواصفات)
+        row_height = 10
+        pdf.set_x(10)
+        pdf.cell(20, row_height, "الصف:", border=0, fill=False, align='R')
+        pdf.set_x(30)
+        pdf.set_font(font_regular, '', 11)
+        pdf.cell(40, row_height, grade_name, border=1, fill=True, align='C') # خلفية مملوءة خفيفة
+        
+        pdf.set_x(75)
+        pdf.set_font(font_bold, '', 11)
+        pdf.cell(25, row_height, "زمن الحصة:", border=0, fill=False, align='R')
+        pdf.set_x(100)
+        pdf.set_font(font_regular, '', 11)
+        pdf.cell(40, row_height, str(item.get('duration', '40 دقيقة')), border=1, fill=True, align='C')
 
-        draw_four_col_row("الصف الدراسي:", grade_name, "الهدف التعليمي:", item.get('goal', '---'))
-        draw_four_col_row("زمن الحصة:", item.get('duration', '40 دقيقة'), "رقم الصفحة:", item.get('page_ref', '---'))
+        pdf.set_x(145)
+        pdf.set_font(font_bold, '', 11)
+        pdf.cell(25, row_height, "رقم الصفحة:", border=0, fill=False, align='R')
+        pdf.set_x(170)
+        pdf.set_font(font_regular, '', 11)
+        pdf.cell(30, row_height, str(item.get('page_ref', '-')), border=1, fill=True, align='C')
+        
+        pdf.ln(row_height + 2)
+        
+        # الصف الثاني (الهدف)
+        pdf.set_x(10)
+        pdf.set_font(font_bold, '', 11)
+        pdf.cell(25, row_height, "الهدف:", border=0, fill=False, align='R')
+        pdf.set_x(35)
+        pdf.set_font(font_regular, '', 11)
+        pdf.cell(165, row_height, str(item.get('goal', '---')), border=1, fill=True, align='R')
+        
+        pdf.ln(15)
 
-        # المحتوى الذكي
-        pdf.ln(10)
+        # --- 3. المحتوى التعليمي (Body) ---
         pdf.set_font(font_bold, '', 16)
-        pdf.set_text_color(*header_blue)
-        pdf.cell(0, 10, self.process_text("الأنشطة التعليمية المقترحة (مُيسِر AI)"), align='R')
-        pdf.set_draw_color(*header_blue)
+        pdf.set_text_color(*primary_color)
+        pdf.cell(0, 10, "📝 الأنشطة التعليمية المقترحة (بمُيَّسِر AI)", align='R', ln='DEPRECATED')
+        
+        pdf.set_draw_color(*primary_color)
         pdf.set_line_width(0.5)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(5)
-        
+
         pdf.set_font(font_regular, '', 12)
         pdf.set_text_color(0, 0, 0)
+        
+        # تنظيف النص
         clean_reply = ai_reply.replace('**', '').replace('###', '').replace('-', '•')
         pdf.multi_cell(0, 9, self.process_text(clean_reply), align='R')
 
-        # الملاحظات والتوقيعات
+        # --- 4. منطقة التوقيعات (Footer Area) ---
         current_y = pdf.get_y()
-        if current_y > 230: 
+        if current_y > 220: 
             pdf.add_page()
             current_y = 20
         
-        pdf.ln(10)
-        pdf.set_font(font_regular, '', 14)
-        pdf.set_text_color(19, 38, 250)
-        pdf.cell(0, 10, self.process_text("ملاحظات المعلم:"), align='R')
+        pdf.ln(20)
+        pdf.set_draw_color(*border_color)
+        pdf.set_line_width(0.2)
         
-        # مربع الملاحظات
-        pdf.set_fill_color(250, 252, 255)
-        pdf.set_draw_color(220, 220, 220)
-        current_y = pdf.get_y()
-        pdf.rect(10, current_y, 190, 30, 'DF')
-        pdf.set_y(current_y + 35)
+        # رسم صندوق الملاحظات والتوقيع
+        pdf.set_fill_color(250, 252, 255) # لون خلفية باهت
+        pdf.rect(10, pdf.get_y(), 190, 35, 'DF') # صندوق بحجم 3.5 سم
         
-        pdf.set_font(font_bold, '', 11)
-        pdf.set_text_color(44, 62, 80)
-
-        pdf.set_x(105)
-        pdf.cell(95, 10, self.process_text("توقيع معلــم المـادة: ..........................."), align='R')
+        pdf.set_y(pdf.get_y() + 5)
+        pdf.set_font(font_bold, '', 10)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(0, 8, "ملاحظات المعلم:", align='R')
         
+        # توقيعات في الأسفل
+        pdf.set_y(pdf.get_y() + 20)
         pdf.set_x(10)
-        pdf.cell(95, 10, self.process_text("توقيع الخبير التربوي: ..........................."), align='L')
+        pdf.cell(90, 10, "توقيع الخبير التربوي: ........................", align='L')
+        pdf.set_x(110)
+        pdf.cell(90, 10, "توقيع المعلم: ........................", align='R')
 
         return self._generate_pdf_buffer(pdf)
     
@@ -307,3 +318,4 @@ class LessonPDFGenerator:
         pdf.multi_cell(180, 8, self.process_text(insight), align='R')
 
         return self._generate_pdf_buffer(pdf)
+

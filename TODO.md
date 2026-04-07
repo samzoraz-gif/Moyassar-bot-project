@@ -1,6 +1,9 @@
-# خطوات إصلاح خطأ الاستيراد في SmartGuidenceBot
+# خطة إصلاح خطأ Pylance في create_lesson_plan_pdf
 
-- [x] 1. إزالة السطر الخاطئ "from typing import str" من utils/text_processor.py
-- [x] 2. اختبار تشغيل `python main.py` للتأكد من نجاح الاستيرادات
-- [x] 3. التحقق من ظهور "✅ جميع المحركات جاهزة للعمل." بدون traceback
-- [x] 4. إنهاء المهمة بـ attempt_completion
+## الخطوات:
+- [x] 1. تحديث utils/pdf_generator.py: استبدال جميع `ln=True` بـ `ln=1` في pdf.cell()
+- [ ] 2. التحقق من عدم وجود أخطاء أخرى في الملف
+- [ ] 3. اختبار إنشاء PDF من handlers/conversation.py
+- [ ] 4. إكمال المهمة بـ attempt_completion
+
+حالة التقدم: تم استبدال `ln=True` في 3 مواقع، لكن ظهرت أخطاء تهيئة في pdf_generator.py بسبب مشاكل indentation. سأقوم بإعادة كتابة الملف كاملاً

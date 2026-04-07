@@ -201,11 +201,14 @@ async def print_reply_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_data = _ensure_user_data(context)
     last_response = str(user_data.get('last_ai_response', "لا يوجد محتوى"))
     current_lesson = user_data.get('lesson_details') or {}
+
+    grade_id = user_data.get('selected_grade')
+    grade_name = curriculum.get_grades().get(grade_id, 'غير معروف') if grade_id else 'غير معروف'
     
     pdf_buffer = pdf_gen.create_lesson_plan_pdf(
         item=current_lesson,
         ai_reply=last_response,
-        grade_name=str(current_lesson.get('grade_name', 'غير محدد'))
+        grade_name=grade_name
     )
 
     await query.message.reply_document(
