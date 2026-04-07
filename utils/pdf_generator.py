@@ -1,7 +1,8 @@
 from fpdf import FPDF
 from io import BytesIO
 from datetime import datetime
-import os
+from pathlib import Path
+import logging
 from config import FONT_PATH
 from utils.text_processor import ArabicTextProcessor
 
@@ -9,7 +10,25 @@ class LessonPDFGenerator:
     def __init__(self):
         self.processor = ArabicTextProcessor()
         # تعريف المسار هنا لضمان عمل الدالة
-        self.font_path = FONT_PATH if os.path.exists(FONT_PATH) else None
+        self.font_path = Path(FONT_PATH) if Path(FONT_PATH).exists() else None
+
+    def _register_fonts(self, pdf: FPDF) -> bool:
+        """Register Arabic font once and fall back cleanly on failure."""
+        if not self.font_path:
+            return False
+
+        try:
+            pdf.add_font('Amiri', '', str(self.font_path))
+            pdf.add_font('AmiriBold', '', str(self.font_path))
+            return True
+        except Exception as exc:
+            logging.warning(
+                "Failed to register custom PDF font '%s': %s. Falling back to Arial.",
+                self.font_path,
+                exc,
+            )
+            self.font_path = None
+            return False
 
     def process_text(self, text):
         """دالة وسيطة لضمان استخدام معالج النصوص العربي"""
@@ -47,18 +66,16 @@ class LessonPDFGenerator:
         text_dark = (44, 62, 80)
         
         # إعداد الخطوط
-        if self.font_path:
-            pdf.add_font('Amiri', '', self.font_path)
-            pdf.add_font('AmiriBold', '', self.font_path) 
-            pdf.set_font('Amiri', '', 12)
-        else:
-            pdf.set_font('Arial', '', 12)
+        fonts_loaded = self._register_fonts(pdf)
+        font_regular = 'Amiri' if fonts_loaded else 'Arial'
+        font_bold = 'AmiriBold' if fonts_loaded else 'Arial'
+        pdf.set_font(font_regular, '', 12)
 
         # --- 1. رأس الصفحة (Header) ---
         pdf.set_fill_color(*header_blue)
         pdf.rect(0, 0, 210, 40, 'F')
         pdf.set_text_color(255, 255, 255)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 20)
+        pdf.set_font(font_bold, '', 20)
         pdf.set_y(15)
         pdf.cell(0, 10, self.process_text(f"خطة تحضير الدرس - {item.get('title', '')}"), ln=1, align='C')
         
@@ -76,25 +93,25 @@ class LessonPDFGenerator:
             # الخلية 1 (العنوان 1)
             pdf.set_xy(positions[0], pdf.get_y())
             pdf.set_fill_color(*table_label_bg)
-            pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 11)
+            pdf.set_font(font_bold, '', 11)
             pdf.cell(w_label, h, self.process_text(label1), border=1, fill=True, align='R')
             
             # الخلية 2 (القيمة 1)
             pdf.set_xy(positions[1], pdf.get_y())
             pdf.set_fill_color(255, 255, 255)
-            pdf.set_font('Amiri', '', 11)
+            pdf.set_font(font_regular, '', 11)
             pdf.cell(w_val, h, self.process_text(val1), border=1, fill=True, align='R')
 
             # الخلية 3 (العنوان 2)
             pdf.set_xy(positions[2], pdf.get_y())
             pdf.set_fill_color(*table_label_bg)
-            pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 11)
+            pdf.set_font(font_bold, '', 11)
             pdf.cell(w_label, h, self.process_text(label2), border=1, fill=True, align='R')
             
             # الخلية 4 (القيمة 2)
             pdf.set_xy(positions[3], pdf.get_y())
             pdf.set_fill_color(255, 255, 255)
-            pdf.set_font('Amiri', '', 11)
+            pdf.set_font(font_regular, '', 11)
             pdf.cell(w_val, h, self.process_text(val2), border=1, fill=True, align='R')
             pdf.ln(h)
 
@@ -103,7 +120,7 @@ class LessonPDFGenerator:
 
         # --- 3. المحتوى الذكي ---
         pdf.ln(10)
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial', '', 16)
+        pdf.set_font(font_bold, '', 16)
         pdf.set_text_color(*header_blue) 
         pdf.cell(0, 10, self.process_text("الأنشطة التعليمية المقترحة (مُيسِر AI)"), ln=1, align='R')
         pdf.set_draw_color(*header_blue)
@@ -111,7 +128,7 @@ class LessonPDFGenerator:
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(5)
         
-        pdf.set_font('Amiri', '', 12)
+        pdf.set_font(font_regular, '', 12)
         pdf.set_text_color(0, 0, 0)
         clean_reply = ai_reply.replace('**', '').replace('###', '').replace('-', '•')
         pdf.multi_cell(0, 9, self.process_text(clean_reply), align='R')
@@ -121,7 +138,7 @@ class LessonPDFGenerator:
         if current_y > 230: pdf.add_page(); current_y = 20
         
         pdf.ln(10)
-        pdf.set_font('Amiri', '', 14)
+        pdf.set_font(font_regular, '', 14)
         pdf.set_text_color(19, 38, 250)
         # عنوان عريض للملاحظات
         pdf.cell(0, 10, self.process_text("ملاحظات المعلم:"), ln=1, align='R')
@@ -133,7 +150,7 @@ class LessonPDFGenerator:
         pdf.rect(10, current_y, 190, 30, 'DF') # مربع بمساحة 3 سم
         pdf.set_y(current_y + 35) # الانتقال لما بعد المربع
         
-        pdf.set_font('AmiriBold' if self.font_path else 'Arial','',11)
+        pdf.set_font(font_bold, '', 11)
         pdf.set_text_color(44, 62, 80)
 
         pdf.set_x(105) # نبدأ من اليسار بعد ترك مساحة للتوقيع الأول
@@ -152,9 +169,8 @@ class LessonPDFGenerator:
         # الألوان لتقرير التقييم (أخضر مريح)
         header_green = (23, 165, 137)
         
-        if self.font_path:
-            pdf.add_font('Amiri', '', self.font_path)
-            pdf.set_font('Amiri', '', 12)
+        fonts_loaded = self._register_fonts(pdf)
+        pdf.set_font('Amiri' if fonts_loaded else 'Arial', '', 12)
 
         # الرأس
         pdf.set_fill_color(*header_green)
@@ -200,10 +216,8 @@ class LessonPDFGenerator:
         brand_color = (108, 52, 131)
         bg_light = (248, 249, 249)
         
-        if self.font_path:
-            pdf.add_font('Amiri', '', self.font_path)
-            pdf.add_font('AmiriBold', '', self.font_path)
-            pdf.set_font('Amiri', '', 12)
+        fonts_loaded = self._register_fonts(pdf)
+        pdf.set_font('Amiri' if fonts_loaded else 'Arial', '', 12)
 
         # --- 1. رأس التقرير (Header) ---
         pdf.set_fill_color(*brand_color)
