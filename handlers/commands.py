@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode
 
 # 1. الاستيراد من الإعدادات والموديلات
-from config import EXCEL_DB_NAME, BTN_PRINT_REPORT, MAIN_MENU_KEYBOARD # المستوردة من إعدادات النظام
+from config import EXCEL_DB_NAME, BTN_PRINT_REPORT, BTN_HELP, MAIN_MENU_KEYBOARD # المستوردة من إعدادات النظام
 from data.db_manager import DatabaseManager
 from .ai_orchestrator import AIModelOrchestrator
 
@@ -38,6 +38,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_message, reply_markup=MAIN_MENU_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
     return ConversationHandler.END # لضمان الخروج من أي محادثة سابقة
+
+async def help_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """عرض رسالة المساعدة عند الضغط على زر المساعدة أو كتابة /help."""
+    help_text = (
+        "❓ **مساعدة مُيَّسِر**\n\n"
+        "• اضغط على 'درس جديد' لبدء تحضير درس.\n"
+        "• اضغط على '👤 ملفي الشخصي' لعرض تقرير الأداء.\n"
+        "• اضغط على '❌ إنهاء الجلسة' للخروج من أي وضع.\n"
+        "• يمكنك أيضًا إرسال أي سؤال تعليمي خلال المحادثة."
+    )
+    if update.callback_query:
+        await update.callback_query.answer()
+        if update.callback_query.message:
+            await update.callback_query.message.reply_text(help_text, reply_markup=MAIN_MENU_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
+    elif update.message:
+        await update.message.reply_text(help_text, reply_markup=MAIN_MENU_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
+    return ConversationHandler.END
 
 async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض إحصائيات المعلم وتحليل الأداء بناءً على البيانات التاريخية."""
@@ -101,12 +118,14 @@ async def cancel_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "شكراً لثقتك في **مُيَّسِر** كشريك في رحلتك التعليمية.\n "
         "✨ **دمت ملهمًا لطلابك!**"
     )
-    if update.message:
+    if update.callback_query:
+        await update.callback_query.answer()
+        if update.callback_query.message:
+            await update.callback_query.message.reply_text(
+                farewell_message,
+                reply_markup=MAIN_MENU_KEYBOARD,
+                parse_mode=ParseMode.MARKDOWN
+            )
+    elif update.message:
         await update.message.reply_text(farewell_message, reply_markup=MAIN_MENU_KEYBOARD, parse_mode=ParseMode.MARKDOWN)
-    elif update.callback_query and update.callback_query.message:
-        await update.callback_query.message.reply_text(
-            farewell_message,
-            reply_markup=MAIN_MENU_KEYBOARD,
-            parse_mode=ParseMode.MARKDOWN
-        )
     return ConversationHandler.END

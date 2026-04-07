@@ -2,10 +2,10 @@ import os
 
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler
 from config import (
-    TELEGRAM_BOT_TOKEN, BTN_NEW_LESSON, BTN_PROFILE, BTN_CANCEL, 
+    TELEGRAM_BOT_TOKEN, BTN_NEW_LESSON, BTN_PROFILE, BTN_HELP, BTN_CANCEL,
     CHOOSING_GRADE, CHOOSING_WEEK, CHATTING, EVALUATING
     )
-from handlers.commands import start, show_profile, cancel_action
+from handlers.commands import start, show_profile, cancel_action, help_action
 from handlers.conversation import (
     new_lesson_flow, grade_choice, week_choice, 
     handle_ai_chat, start_evaluation, submit_evaluation, 
@@ -34,12 +34,14 @@ def main():
                 CallbackQueryHandler(print_full_report_handler, pattern="^(PRINT_EVAL_REPORT|PRINT_FULL_REPORT)$"),
                 MessageHandler(filters.Regex(f"^{BTN_NEW_LESSON}$"), new_lesson_flow),
                 MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile),
+                MessageHandler(filters.Regex(f"^{BTN_HELP}$"), help_action),
                 MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex(f"^{BTN_CANCEL}$"), handle_ai_chat)
             ],
             EVALUATING: [
                 CallbackQueryHandler(submit_evaluation, pattern="^EVAL_"),
                 MessageHandler(filters.Regex(f"^{BTN_NEW_LESSON}$"), new_lesson_flow),
-                MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile)
+                MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile),
+                MessageHandler(filters.Regex(f"^{BTN_HELP}$"), help_action)
             ]
         },
         fallbacks=[
@@ -51,8 +53,12 @@ def main():
 
     # إضافة الـ Handlers الأساسية
     app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(filters.Regex(f"^{BTN_CANCEL}$"), cancel_action))
     app.add_handler(MessageHandler(filters.Regex(f"^{BTN_PROFILE}$"), show_profile))
+    app.add_handler(MessageHandler(filters.Regex(f"^{BTN_HELP}$"), help_action))
     app.add_handler(CommandHandler("profile", show_profile))
+    app.add_handler(CommandHandler("cancel", cancel_action))
+    app.add_handler(CommandHandler("help", help_action))
     # تسجيل التعامل مع طباعة تقرير الأداء سواء من داخل المحادثة أو من ملف التعريف
     app.add_handler(CallbackQueryHandler(print_full_report_handler, pattern="^PRINT_FULL_REPORT$"))
 

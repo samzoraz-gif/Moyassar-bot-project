@@ -309,6 +309,8 @@ async def submit_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # استدعاء المنسق للحصول على تنبؤ LSTM وفجوة XGBoost
         viz_data = orchestrator.process_lesson_request(
+            teacher_id=str(user.id),
+            surname=user.first_name or user.username or "المعلم",
             lesson_title=lesson_title,
             user_query="تقييم روتيني",
             lesson_goal="---",
