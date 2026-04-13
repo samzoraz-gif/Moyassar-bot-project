@@ -40,6 +40,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# Suppress verbose httpx logs from Telegram polling
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # إسكات رسائل الـ Debug المزعجة من مكتبات محددة
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 logging.getLogger('PIL').setLevel(logging.WARNING)  # إذا كنت تستخدم Pillow للصور

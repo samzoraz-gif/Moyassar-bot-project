@@ -1,9 +1,18 @@
-# خطة إصلاح خطأ Pylance في create_lesson_plan_pdf
+# Fix Terminal Logging Issue (httpx verbose "OK\" malformation)
 
-## الخطوات:
-- [x] 1. تحديث utils/pdf_generator.py: استبدال جميع `ln=True` بـ `ln=1` في pdf.cell()
-- [ ] 2. التحقق من عدم وجود أخطاء أخرى في الملف
-- [ ] 3. اختبار إنشاء PDF من handlers/conversation.py
-- [ ] 4. إكمال المهمة بـ attempt_completion
+## Status: Step 1 Complete ✅
 
-حالة التقدم: تم استبدال `ln=True` في 3 مواقع، لكن ظهرت أخطاء تهيئة في pdf_generator.py بسبب مشاكل indentation. سأقوم بإعادة كتابة الملف كاملاً
+**Problem**: httpx INFO logs from Telegram polling show malformed \"OK\" output, cluttering terminal.
+
+**Root Cause**: logging.INFO enables httpx verbose logs during getUpdates polling.
+
+**Plan**:
+- [x] Step 1: Suppress httpx logger to WARNING in config.py
+- [ ] Step 2: Test by running `python main.py`
+- [ ] Step 3: Verify clean terminal output
+- [ ] Step 4: Complete if fixed
+
+**Next**: Run `python main.py` to test. Expect clean logs without httpx spam.
+
+**Expected Result**: Clean terminal with only app logs, no httpx spam.
+
