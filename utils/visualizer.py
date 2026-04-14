@@ -1,7 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
 from io import BytesIO
-import numpy as np
 from utils.text_processor import ArabicTextProcessor
 
 matplotlib.use('Agg')  # استخدام الخلفية غير التفاعلية لتجنب مشاكل العرض في بيئات السيرفر
@@ -16,11 +15,22 @@ class PerformanceVisualizer:
             return value.decode('utf-8')
         return str(value)
 
-    def generate_smart_chart(self, history, current_score, prediction, gap_prob, lesson_title):
+    def generate_smart_chart(
+        self,
+        history_scores: list,
+        prediction: float,
+        gap_prob: float,
+        lesson_title: str,
+    ):
         """
         توليد رسم بياني خطي يوضح اتجاه مشاركة الطلاب.
+        history_scores: آخر التقييمات (بعد حفظ التقييم الحالي في قاعدة البيانات) دون تكرار.
         """
-        all_scores = history + [current_score]
+        if history_scores:
+            all_scores = [max(1, min(3, int(s))) for s in history_scores]
+        else:
+            pv = max(1, min(3, int(round(float(prediction)))))
+            all_scores = [pv]
         plt.figure(figsize=(10, 5))
 
         # رسم الخط الفعلي

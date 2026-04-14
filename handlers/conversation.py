@@ -338,30 +338,70 @@ async def submit_evaluation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             grade_level=current_grade
         ) or {}
 
-        predicted_val = viz_data.get('trend_value', 2.0)
-        xgb_result = viz_data.get('xgb_result', {}) or {}
-        gap_prob = xgb_result.get('gap_probability', 0)
+        predicted_val = float(viz_data.get("trend_value") or 2.0)
+        xgb_result = viz_data.get("xgb_result", {}) or {}
+        gap_prob = xgb_result.get("gap_probability", 0)
+        try:
+            gap_prob = float(gap_prob)
+        except (TypeError, ValueError):
+            gap_prob = 0.0
+        trend_label = viz_data.get("trend_label")
 
+        score_history = history[-5:] if history else []
         chart_buf = visualizer.generate_smart_chart(
-            history=history[-5:] if len(history) > 0 else [score],
-            current_score=score,
+            history_scores=score_history,
             prediction=predicted_val,
             gap_prob=gap_prob,
-            lesson_title=lesson_title
+            lesson_title=lesson_title,
         )
-        
+
+        chart_png = chart_buf.getvalue()
+        photo_io = BytesIO(chart_png)
+
+        teacher_dn = user.first_name or user.username or "المعلم"
+        body_paragraphs = [
+            "تم تسجيل تقييم تفاعل الطلاب لهذا الدرس بنجاح.",
+            "يوضح الرسم البياني أداء التفاعل في آخر التقييمات مع تنبؤ للحصة القادمة وفق نموذج تحليل الفجوة.",
+            f"مستوى التفاعل المسجّل لهذا الدرس: {score} من 3.",
+            f"تقدير احتمالية الفجوة في الحصة القادمة: {gap_prob:g}٪.",
+            "يُنصح بمتابعة الاستراتيجيات الناجحة عند ارتفاع التفاعل، أو تنويع الأنشطة والتدرج في الصعوبة عند الحاجة.",
+        ]
+
+        caption = (
+            "✅ *تم تسجيل التقييم بنجاح!*\n\n"
+            "📊 *رؤية مُيسّر الذكية للدرس القادم:*\n"
+            f"• مستوى التفاعل الحالي: {score}/3\n"
+            f"• احتمالية الفجوة القادمة: {gap_prob:g}%\n\n"
+            "💡 الرسم البياني يوضح اتجاه الأداء المتوقع وفقاً لصعوبة المنهج وتاريخ الصف."
+        )
+
         await query.message.reply_photo(
-            photo=chart_buf,
-            caption=(
-                f"✅ **تم تسجيل التقييم بنجاح!**\\n\\n"
-                f"📊 **رؤية مُيَسِّر الذكية للدرس القادم:**\\n"
-                f"• مستوى التفاعل الحالي: {score}/3\\n"
-                f"• احتمالية الفجوة القادمة: {gap_prob}%\\n\\n"
-                f"💡 *الرسم البياني يوضح اتجاه الأداء المتوقع بناءً على صعوبة المنهج وتاريخ الصف.*"
-            ),
-            parse_mode=ParseMode.MARKDOWN
+            photo=photo_io,
+            caption=caption,
+            parse_mode=ParseMode.MARKDOWN,
         )
-        
+
+        try:
+            eval_pdf = pdf_gen.create_interaction_evaluation_pdf(
+                teacher_name=teacher_dn,
+                lesson_title=lesson_title,
+                grade_name=grade_name,
+                score=score,
+                gap_prob=gap_prob,
+                trend_label=str(trend_label) if trend_label is not None else None,
+                chart_image=BytesIO(chart_png),
+                body_paragraphs=body_paragraphs,
+            )
+            await query.message.reply_document(
+                document=InputFile(
+                    eval_pdf,
+                    filename=f"Interaction_Eval_{datetime.now().strftime('%H%M')}.pdf",
+                ),
+                caption="📄 نسخة PDF من التقييم والرسم البياني (نفس ألوان تقارير مُيسّر)",
+            )
+        except Exception as pdf_err:
+            logging.error("Interaction evaluation PDF failed: %s", pdf_err)
+
         await query.delete_message()
         
     except Exception as e:
